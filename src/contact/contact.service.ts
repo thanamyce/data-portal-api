@@ -1,0 +1,46 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Contact, ContactDocument } from './contact.schema';
+import { Model } from 'mongoose';
+
+@Injectable()
+export class ContactService {
+  constructor(
+    @InjectModel(Contact.name) private contactModel: Model<ContactDocument>,
+  ) {}
+
+  async createFromCSV(data: Partial<Contact>, updateExisting): Promise<Contact | any> {
+  
+
+  if (!data.contactLinkedinProfile) {
+    throw new Error('Missing required field: contactLinkedinProfile');
+  }
+
+  if (updateExisting) {
+  // Normal upsert: update if exists, insert if not
+  const result = await this.contactModel.updateOne(
+    { contactLinkedinProfile: data.contactLinkedinProfile },
+    { $set: data },
+    { upsert: true }
+  );
+  return result;
+} else {
+  // Check if document exists
+  const existing = await this.contactModel.findOne({
+    contactLinkedinProfile: data.contactLinkedinProfile,
+  });
+
+  if (existing) {
+    // Document exists, do NOT update
+    return { matched: true, inserted: false };
+  } else {
+    // Insert new document
+    const inserted = await this.contactModel.create(data);
+    return { matched: false, inserted: true, document: inserted };
+  }
+}
+
+}
+
+}
+
