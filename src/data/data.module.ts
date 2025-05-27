@@ -8,10 +8,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Company, CompanySchema } from 'src/company/company.schema';
 import { Contact, ContactSchema } from 'src/contact/contact.schema';
 import { Transaction, TransactionSchema } from './transaction.shema';
-import { AuthModule } from 'src/auth/auth.module';
+
 
 @Module({
-  imports:[CompanyModule,ContactModule,TaskModule,AuthModule,
+  imports:[CompanyModule,ContactModule,TaskModule,
     MongooseModule.forFeature([{ name: Company.name, schema: CompanySchema },{ name: Contact.name, schema: ContactSchema },{name: Transaction.name, schema: TransactionSchema}]),
   ],
   providers: [DataService],

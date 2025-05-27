@@ -12,9 +12,34 @@ import { Contact, ContactDocument } from 'src/contact/contact.schema';
 @Injectable()
 export class DataService {
   private readonly logger = new Logger(DataService.name);
-   public readonly companySchemaFields: string[];
+public readonly companySchemaFields = [
+    'name',
+    'domain',
+    'linkedinUrl',
+    'emailPattern',
+    'address',
+    'companyPhoneNumber',
+    'employeeRange',
+    'revenueRange',
+    'industry',
+    'unknownFields',
+    'lastValidityDate',
+  ];
 
-  public readonly contactSchemaFields:string[];
+  public readonly contactSchemaFields = [
+    'firstName',
+    'lastName',
+    'contactLinkedinProfile',
+    'emailAddress',
+    'phoneNumber',
+    'mobileNumber',
+    'title',
+    'level',
+    'companyExtension',
+    'address',
+    'companyId',
+    'lastUpdated',
+  ];
 
   constructor(
     private readonly companyService: CompanyService,
@@ -23,14 +48,6 @@ export class DataService {
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument | any>,
     @InjectModel(Contact.name) private contactModel: Model<ContactDocument | any>
   ) {
-    this.companySchemaFields = Object.keys(this.companyModel .schema.paths).filter(
-    (field) => !field.startsWith('_'),
-  );
-  this.contactSchemaFields = Object.keys(this.contactModel .schema.paths).filter(
-    (field) => !field.startsWith('_'),
-  );
-
-
   }
 
 

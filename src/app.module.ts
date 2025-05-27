@@ -7,7 +7,8 @@ import { DataModule } from './data/data.module';
 import { TaskModule } from './task/task.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthModule } from './auth/auth.module';
+
+import { FetchdataModule } from './fetchdata/fetchdata.module';
 
 @Module({
   imports: [ConfigModule.forRoot({
@@ -20,7 +21,7 @@ import { AuthModule } from './auth/auth.module';
         uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/mydb',
       }),
       inject: [ConfigService],
-    }),CompanyModule, ContactModule, DataModule, TaskModule, AuthModule],
+    }),CompanyModule, ContactModule, DataModule, TaskModule,FetchdataModule],
   controllers: [AppController],
   providers: [AppService],
 })

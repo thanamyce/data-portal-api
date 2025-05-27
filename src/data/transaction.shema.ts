@@ -15,7 +15,7 @@ export class Transaction extends Document {
   @Prop()
   createdBy: string;
 
-  @Prop()
+  @Prop({default: Date.now})
   createdAt: Date
 }
 

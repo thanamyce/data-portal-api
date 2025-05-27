@@ -11,6 +11,7 @@ import {
   Req,
   Res,
   Get,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DataService } from './data.service';
@@ -19,13 +20,13 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
 
+import { ReqUser } from 'src/util/decorate';
+
 @Controller('data')
 export class DataController {
   constructor(private readonly dataService: DataService) {}
 
-  /**
-   * Step 1: Upload CSV and return headers
-   */
+
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -100,6 +101,7 @@ export class DataController {
   /**
    * Step 2: Process CSV without needing filePath from client
    */
+
   @Post('process')
   async processMappedCSV(
     @Req() req: Request,
@@ -132,10 +134,10 @@ export class DataController {
         body.requiredCompanyFields,
         body.semiRequiredCompanyFields,
         body.requiredContactFields,
-        body.requiredContactFields,
+        body.semiRequiredContactFields,
         body.isCompany,
         body.isContact,
-        body.updateExisting,
+        body.updateExisting
       );
         req.session.destroy((err)=>{
           if(err){
