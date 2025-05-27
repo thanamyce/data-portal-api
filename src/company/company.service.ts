@@ -14,6 +14,10 @@ export class CompanyService {
   if (!data.linkedinUrl) {
     throw new Error('Missing required field: LinkdinUri');
   }
+  const record = await this.companyModel.findOne({linkedinUrl: data.linkedinUrl})
+  if (record && !updateExisting) {
+    return { matched: true, isDuplicate: true, inserted: false, message: `Duplicate company ${data.linkedinUrl}, skipped insert` };
+  }
     if (updateExisting) {
   // Normal upsert: update if exists, insert if not
   const result = await this.companyModel.updateOne(

@@ -12,34 +12,34 @@ import { Contact, ContactDocument } from 'src/contact/contact.schema';
 @Injectable()
 export class DataService {
   private readonly logger = new Logger(DataService.name);
-public readonly companySchemaFields = [
-    'name',
-    'domain',
-    'linkedinUrl',
-    'emailPattern',
-    'address',
-    'companyPhoneNumber',
-    'employeeRange',
-    'revenueRange',
-    'industry',
-    'unknownFields',
-    'lastValidityDate',
-  ];
+// public readonly companySchemaFields = [
+//     'name',
+//     'domain',
+//     'linkedinUrl',
+//     'emailPattern',
+//     'address',
+//     'companyPhoneNumber',
+//     'employeeRange',
+//     'revenueRange',
+//     'industry',
+//     'unknownFields',
+//     'lastValidityDate',
+//   ];
 
-  public readonly contactSchemaFields = [
-    'firstName',
-    'lastName',
-    'contactLinkedinProfile',
-    'emailAddress',
-    'phoneNumber',
-    'mobileNumber',
-    'title',
-    'level',
-    'companyExtension',
-    'address',
-    'companyId',
-    'lastUpdated',
-  ];
+//   public readonly contactSchemaFields = [
+//     'firstName',
+//     'lastName',
+//     'contactLinkedinProfile',
+//     'emailAddress',
+//     'phoneNumber',
+//     'mobileNumber',
+//     'title',
+//     'level',
+//     'companyExtension',
+//     'address',
+//     'companyId',
+//     'lastUpdated',
+//   ];
 
   constructor(
     private readonly companyService: CompanyService,
@@ -50,6 +50,18 @@ public readonly companySchemaFields = [
   ) {
   }
 
+    get contactSchemaFields(): string[] {
+    return Object.keys(this.contactModel.schema.paths).filter(
+      (key) => !['_id', '__v', 'createdAt', 'updatedAt'].includes(key)
+    );
+  }
+
+  // ✅ Dynamic getter for Company schema fields
+  get companySchemaFields(): string[] {
+    return Object.keys(this.companyModel.schema.paths).filter(
+      (key) => !['_id', '__v', 'createdAt', 'updatedAt'].includes(key)
+    );
+  }
 
 
   /**
@@ -73,7 +85,7 @@ public readonly companySchemaFields = [
     return this.companySchemaFields;
   }
 
-  async getContactFiels(){
+  async getContactFields(){
     return this.contactSchemaFields;
   }
 
@@ -90,12 +102,12 @@ public readonly companySchemaFields = [
     isCompany: boolean,
     isContact: boolean,
     updateExisting: boolean,
-  ): Promise<{ message: string; totalRows: number; successCount: number; errorCount: number; errors: string[],invalidData: string[] }> {
+  ): Promise<{ message: string; totalRows: number; successCount: number; errorCount: number; errors: string[],duplicateValues: string[], invalidData: string[] }> {
     const rows: any[] = [];
     const errors: any[] = [];
     let successCount = 0;
     const invalidData: any = [];
-
+    const duplicateValues: any = [];
     try {
       await new Promise<void>((resolve, reject) => {
         fs.createReadStream(filePath)
@@ -126,7 +138,10 @@ public readonly companySchemaFields = [
           }else{
             const semiContain = this.checkSemiRequiredFields(companyData,semiRequiredCompanyFields);
             if(semiContain){
-                await this.companyService.createFromCSV(companyData,updateExisting);
+                const res = await this.companyService.createFromCSV(companyData,updateExisting);
+                if(res.isDuplicate){
+                  duplicateValues.push(res.message)
+                }
             }else{
                 await this.taskService.createIncompleteTask("company", companyData, requiredCompanyFields, semiRequiredCompanyFields);
             }
@@ -148,7 +163,10 @@ public readonly companySchemaFields = [
           }else{
             const semiContain = this.checkSemiRequiredFields(contactData,semiRequiredContactFields);
             if(semiContain){
-                await this.contactService.createFromCSV(contactData,updateExisting);
+                const res = await this.contactService.createFromCSV(contactData,updateExisting);
+                 if(res.isDuplicate){
+                  duplicateValues.push(res.message)
+                }
             }else{
                 await this.taskService.createIncompleteTask("company", contactData, requiredContactFields, semiRequiredContactFields);
             }
@@ -175,6 +193,7 @@ public readonly companySchemaFields = [
       successCount,
       errorCount: errors.length,
       errors: errors,
+      duplicateValues: duplicateValues,
       invalidData: invalidData
     };
   }

@@ -92,11 +92,11 @@ export class DataController {
 
   @Get('getcompanyfield')
   async getCompanyField(){
-    return this.dataService.getCompanyFields;
+    return this.dataService.getCompanyFields();
   }
     @Get('getcontactfield')
   async getContactField(){
-    return this.dataService.getCompanyFields;
+    return this.dataService.getContactFields();
   }
   /**
    * Step 2: Process CSV without needing filePath from client

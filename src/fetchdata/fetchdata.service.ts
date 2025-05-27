@@ -14,9 +14,11 @@ export class  FetchdataService { constructor(
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument>
   ) {}
 
-async filterContactsAndCompanies(filterDto: NestedContactFilterDto) {
+async filterContactsAndCompanies(filterDto: NestedContactFilterDto & { exclude?: any }) {
   const contactFilters: any[] = [];
   const companyFilters: any[] = [];
+  const contactExcludes: any[] = [];
+  const companyExcludes: any[] = [];
 
   const buildRegexFilter = (field: string, value: any) => {
     if (Array.isArray(value)) {
@@ -27,7 +29,6 @@ async filterContactsAndCompanies(filterDto: NestedContactFilterDto) {
       };
     }
     if (typeof value === 'string') {
-      const words = value.trim().split(/\s+/);
       return {
         $or: [
           { [field]: { $regex: value, $options: 'i' } },
@@ -37,6 +38,7 @@ async filterContactsAndCompanies(filterDto: NestedContactFilterDto) {
     return { [field]: value };
   };
 
+  // ✅ Include filters
   if (filterDto.contact) {
     for (const [key, value] of Object.entries(filterDto.contact)) {
       if (value !== undefined && value !== null && value !== '') {
@@ -53,24 +55,88 @@ async filterContactsAndCompanies(filterDto: NestedContactFilterDto) {
     }
   }
 
-  let contactQuery = [];
-  let companyQuery = [];
-
-  if (contactFilters.length > 0) {
-    contactQuery = await this.contactModel.find({ $and: contactFilters });
+ const buildExcludeFilter = (field: string, value: any) => {
+  if (Array.isArray(value)) {
+    return {
+      $nor: value.map(v => ({
+        [field]: { $regex: v, $options: 'i' }
+      }))
+    };
   }
-
-  if (companyFilters.length > 0) {
-    companyQuery = await this.companyModel.find({ $and: companyFilters });
-  }
-
   return {
-    contacts: contactQuery,
-    companies: companyQuery
+    [field]: { $not: { $regex: value, $options: 'i' } }
   };
+};
+
+// Exclude: CONTACT
+if (filterDto.exclude?.contact) {
+  for (const [key, value] of Object.entries(filterDto.exclude.contact)) {
+    if (value !== undefined && value !== null && value !== '') {
+      contactExcludes.push(buildExcludeFilter(key, value));
+    }
+  }
 }
 
+// Exclude: COMPANY
+if (filterDto.exclude?.company) {
+  for (const [key, value] of Object.entries(filterDto.exclude.company)) {
+    if (value !== undefined && value !== null && value !== '') {
+      companyExcludes.push(buildExcludeFilter(key, value));
+    }
+  }
+}
+
+  let contactQuery:any = [];
+let finalContacts = [];
+let matchedCompanyIds: any[] = [];
+let contactMatch: any = {};
+let companyMatch: any = {};
+
+if (contactFilters.length > 0 || contactExcludes.length > 0) {
+  contactMatch = { $and: [...contactFilters, ...contactExcludes, { companyId: { $ne: null } }] };
+}
+
+// Step 1: If contact filters provided, get contacts first
+if (Object.keys(contactMatch).length > 0) {
+  contactQuery = await this.contactModel.find(contactMatch).select('companyId');
+  const companyIdsFromContacts = contactQuery.map(c => c.companyId);
+
+  // Step 2: Apply company filters to only related companies
+  if (companyFilters.length > 0 || companyExcludes.length > 0) {
+    const companies = await this.companyModel.find({
+      $and: [...companyFilters, ...companyExcludes, { _id: { $in: companyIdsFromContacts } }]
+    });
+    matchedCompanyIds = companies.map(c => c._id);
+  } else {
+    // No company filters, just use company IDs from contacts
+    matchedCompanyIds = companyIdsFromContacts;
+  }
+} else if (companyFilters.length > 0 || companyExcludes.length > 0) {
+  // Step 3: No contact filters, but company filters exist — so start from companies
+  const companies = await this.companyModel.find({
+    $and: [...companyFilters, ...companyExcludes]
+  });
+  matchedCompanyIds = companies.map(c => c._id);
+}
+
+// Step 4: Final contact query using matched company IDs
+if (matchedCompanyIds.length > 0) {
+  finalContacts = await this.contactModel.find({
+    ...(Object.keys(contactMatch).length > 0 ? contactMatch : {}),
+    companyId: { $in: matchedCompanyIds }
+  }).populate({
+    path: 'companyId',
+    select: '-createdAt -updatedAt -__v -_id'
+  }).select('-_id -createdAt -updatedAt -__v');
+}
+
+return {
+  contacts: finalContacts
+};
 
 
+
+
+}
 }
 

@@ -6,39 +6,78 @@ export type ContactDocument = Contact & Document;
 
 @Schema({ collection: 'contactData', timestamps: true })
 export class Contact extends Document {
-  
+
   @Prop()
   firstName: string;
 
   @Prop()
   lastName: string;
 
+  @Prop()
+  jobTitle: string;
+
+  @Prop()
+  jobTitleLevel: string;
+
+  @Prop()
+  jobRole: string;
+
+  @Prop()
+  jobSubRole: string;
+
+  @Prop()
+  department: string;
+
+  @Prop()
+  skills:string;
+
+  @Prop()
+  education: string;
+
+  @Prop()
+  location: string;
+
+  @Prop()
+  locality: string;
+
+  @Prop()
+  region: string;
+
+  @Prop()
+  country: string;
+
   @Prop({ unique: true, sparse: true })
-  contactLinkedinProfile: string;
+  contactLinkedinProfile: string; // Previously contactLinkedinProfile
+
+  @Prop({ unique: true, sparse: true })
+  professionalEmail: string;
 
   @Prop()
-  emailAddress: string;
+  professionalEmailStatus: string;
+
+  @Prop({ unique: true, sparse: true })
+  personalEmail: string;
 
   @Prop()
-  phoneNumber: string;
+  personalEmailStatus: string;
 
   @Prop()
-  mobileNumber: string;
+  phoneNumber1: string;
 
   @Prop()
-  title: string;
-
-  @Prop()
-  level: string;
+  phoneNumber2: string;
 
   @Prop()
   companyExtension: string;
 
   @Prop()
-  address: string;
+  companyLinkedin: string;
 
-  @Prop()
-  companyId: string;
+ @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Company',required: false })
+  companyId: MongooseSchema.Types.ObjectId;
+
+ @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Transactions' })
+  transactionId: MongooseSchema.Types.ObjectId;
 
   @Prop({ default: Date.now })
   lastUpdated: Date;
