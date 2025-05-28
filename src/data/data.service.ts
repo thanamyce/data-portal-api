@@ -40,63 +40,150 @@ export class DataService {
   }
 
 
-  /**
-   * Extract headers from first line of CSV
-   */
-  async extractHeaders(filePath: string,mapping:any): Promise<{
-  headers: string[];
-  invalidJobLevel: any[];
-  invalidJobRole: any[];
-  invalidJobSubRole: any[];
-}> {
-  const invalidJobLevelSet = new Set<string>();
-  const invalidJobRoleSet = new Set<string>();
-  const invalidJobSubRoleSet = new Set<string>();
-
-  const validJobLevel = Object.values(jobLevel);
-  const validJobRole = Object.values(jobRole);
-  const validJobSubRole = Object.values(jobSubRole);
-
-  let headers: string[] = [];
-
-  return new Promise((resolve, reject) => {
+async extractHeaders(filePath:string):Promise<{headers: string[];}>{
+    return new Promise((resolve, reject) => {
     fs.createReadStream(filePath)
       .pipe(csvParser())
-      .on('headers', (h: string[]) => {
-        headers = h;
-      })
-      .on('data', (row) => {
-        if(mapping.isContact){
-                  const level = row[mapping.jobLevel]?.trim();
-        const role = row[mapping.jobRole]?.trim();
-        const subRole = row[mapping.jobSubRole]?.trim();
-       
-      if (level && !validJobLevel.includes(level)) {
-          invalidJobLevelSet.add(level);
-        }
-        if (role && !validJobRole.includes(role)) {
-          invalidJobRoleSet.add(role);
-        }
-        if (subRole && !validJobSubRole.includes(subRole)) {
-          invalidJobSubRoleSet.add(subRole);
-        }
-        }
-
-      })
-      .on('end', () => {
-        resolve({
-          headers,
-          invalidJobLevel: Array.from(invalidJobLevelSet),
-          invalidJobRole: Array.from(invalidJobRoleSet),
-          invalidJobSubRole: Array.from(invalidJobSubRoleSet),
-        });
+      .on('headers', (headers: string[]) => {
+        resolve({headers})
       })
       .on('error', (err) => {
         this.logger?.error?.(`CSV header extraction failed: ${err.message}`);
         reject(new InternalServerErrorException('Failed to extract headers from CSV'));
       });
   });
+
 }
+
+async dataValidation(
+    filePath: string,
+    mapping: Record<string, string>,
+    requiredCompanyFields: string[],
+    semiRequiredCompanyFields: string[],
+    requiredContactFields: string[],
+    semiRequiredContactFields: string[],
+    isCompany: boolean,
+    isContact: boolean,
+  ): Promise<any> {
+    const invalidJobLevelSet = new Set<string>();
+    const invalidJobRoleSet = new Set<string>();
+    const invalidJobSubRoleSet = new Set<string>();
+
+    const validJobLevel = Object.values(jobLevel);
+    const validJobRole = Object.values(jobRole);
+    const validJobSubRole = Object.values(jobSubRole);
+
+    const rows: any[] = [];
+    const invalidCompanyData: any[] = [];
+    const invalidContactData: any[] = [];
+    const semiReqMissingCompanyData: any[] = [];
+    const semiReqMissingContactData: any[] = [];
+    const duplicateValues:any[] = [];
+    const errors: any[] = [];
+    let successCount = 0;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        fs.createReadStream(filePath)
+          .pipe(csvParser())
+          .on('data', (row) => rows.push(row))
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err));
+      });
+    } catch (err) {
+      this.logger.error(`CSV processing failed: ${err.message}`);
+      throw new InternalServerErrorException(`CSV process error: ${err.message}`);
+    }
+
+    for (const [index, rawRow] of rows.entries()) {
+      try {
+        const mappedRow = this.mapRowToSchema(rawRow, mapping);
+
+        // COMPANY
+        if (isCompany) {
+          const companyData = this.filterFields(mappedRow, this.companySchemaFields);
+          const isValid = this.checkRequiredFields(companyData, requiredCompanyFields);
+
+          if (!isValid) {
+            const result = Object.fromEntries(requiredCompanyFields.map((key) => [key, companyData[key]]));
+            invalidCompanyData.push({ type: 'company', companyData: result });
+          } else {
+            const semiContain = this.checkSemiRequiredFields(companyData, semiRequiredCompanyFields);
+            if (!semiContain){
+              const reqresult = Object.fromEntries(requiredCompanyFields.map((key) => [key, companyData[key]]));
+              const semiresult = Object.fromEntries(semiRequiredCompanyFields.map((key) => [key, companyData[key]]));
+              const result = { ...reqresult, ...semiresult };
+              semiReqMissingCompanyData.push(result);
+            }
+          }
+        }
+
+        // CONTACT
+        if (isContact) {
+          const contactData: any = this.filterFields(mappedRow, this.contactSchemaFields);
+          const isValid = this.checkRequiredFields(contactData, requiredContactFields);
+
+          if (!isValid) {
+            const result = Object.fromEntries(requiredContactFields.map((key) => [key, contactData[key]]));
+            invalidContactData.push({ type: 'contact', contactData: result });
+          } else {
+            const level = contactData['jobLevel']?.trim().toUpperCase();
+            const role = contactData['jobRole']?.trim().toUpperCase();
+            const subRole = contactData['jobSubRole']?.trim().toUpperCase();
+
+            if (level && !validJobLevel.includes(level)) {
+              invalidJobLevelSet.add(level);
+            }
+            if (role && !validJobRole.includes(role)) {
+              invalidJobRoleSet.add(role);
+            }
+            if (subRole && !validJobSubRole.includes(subRole)) {
+              invalidJobSubRoleSet.add(subRole);
+            }
+
+           
+            const semiContain = this.checkSemiRequiredFields(contactData, semiRequiredContactFields);
+            if (semiContain){
+              const record = await this.companyModel.findOne({linkedinUrl: contactData.linkedinUrl})
+                if (record) {
+                   duplicateValues.push({ matched: true, isDuplicate: true, inserted: false, message: `Duplicate company ${contactData.linkedinUrl}, skipped insert` });
+                   }
+            }
+             else{
+              const reqresult = Object.fromEntries(requiredContactFields.map((key) => [key, contactData[key]]));
+              const semiresult = Object.fromEntries(semiRequiredContactFields.map((key) => [key, contactData[key]]));
+              const result = { ...reqresult, ...semiresult };
+              semiReqMissingContactData.push(result);
+            }
+          }
+        }
+
+        successCount++;
+      } catch (err) {
+        this.logger.error(`Row ${index + 1} failed: ${err.message}`);
+        errors.push({ row: index + 1, message: err.message });
+        continue;
+      }
+    }
+     const invalidFields = {
+              invalidJobLevel: Array.from(invalidJobLevelSet),
+              invalidJobRole: Array.from(invalidJobRoleSet),
+              invalidJobSubRole: Array.from(invalidJobSubRoleSet),
+            }
+    return {
+      message: 'CSV validation data',
+      totalRows: rows.length,
+      successCount,
+      errorCount: errors.length,
+      errors,
+      invalidCompanyData,
+      invalidContactData,
+      semiReqMissingCompanyData,
+      semiReqMissingContactData,
+      invalidFields,
+      duplicateValues,
+    };
+  }
 
   async getCompanyFields(){
     return this.companySchemaFields;
@@ -119,6 +206,7 @@ export class DataService {
     isCompany: boolean,
     isContact: boolean,
     updateExisting: boolean,
+    validFieldMapping: any[],
     transactionId: string,
   ): Promise<{ message: string; totalRows: number; successCount: number; errorCount: number; errors: string[],duplicateValues: string[], invalidData: string[] }> {
     const rows: any[] = [];
@@ -156,7 +244,7 @@ export class DataService {
           }else{
             const semiContain = this.checkSemiRequiredFields(companyData,semiRequiredCompanyFields);
             if(semiContain){
-                const res = await this.companyService.createFromCSV(companyData,updateExisting,transactionId);
+                const res = await this.companyService.createFromCSV(companyData,updateExisting,transactionId,validFieldMapping);
                 if(res.isDuplicate){
                   duplicateValues.push(res.message)
                 }
@@ -181,7 +269,7 @@ export class DataService {
           }else{
             const semiContain = this.checkSemiRequiredFields(contactData,semiRequiredContactFields);
             if(semiContain){
-                const res = await this.contactService.createFromCSV(contactData,updateExisting,transactionId);
+                const res = await this.contactService.createFromCSV(contactData,updateExisting,transactionId,validFieldMapping);
                  if(res.isDuplicate){
                   duplicateValues.push(res.message)
                 }
@@ -234,6 +322,8 @@ export class DataService {
     return result;
   }
 
+
+  
   private checkRequiredFields(data: Record<string, any>, requiredFields: string[]): boolean {
     return requiredFields.every(
       (field) => data[field] != null && `${data[field]}`.trim() !== ''

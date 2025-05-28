@@ -25,6 +25,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { InjectModel } from '@nestjs/mongoose';
 import { Transaction, TransactionDocument } from './transaction.shema';
 import { Model } from 'mongoose';
+import { ResponseHelper } from 'src/util/ResponseHelper';
 
 @Controller('data')
 export class DataController {
@@ -32,6 +33,14 @@ export class DataController {
     @InjectModel(Transaction.name) private readonly transactionModel: Model<TransactionDocument>
   ) {}
 
+  @Get('getcompanyfield')
+  async getCompanyField(){
+    return this.dataService.getCompanyFields();
+  }
+    @Get('getcontactfield')
+  async getContactField(){
+    return this.dataService.getContactFields();
+  }
 
   @Post('upload')
   @UseGuards(AuthGuard)
@@ -61,7 +70,7 @@ export class DataController {
       },
     }),
   )
-  async uploadAndExtractHeaders(@UploadedFile() file: Express.Multer.File, @Req() req: Request, @Body() body:any) {
+  async uploadAndExtractHeaders(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
     if (!file || !file.path) {
       throw new BadRequestException({
         statusCode: HttpStatus.BAD_REQUEST,
@@ -69,21 +78,18 @@ export class DataController {
         error: 'Bad Request',
       });
     }
-
-     
     try {
       // Save filePath in session
       req.session['filePath'] = file.path;
       req.session['fileName'] = file.filename;
 
-      const result  = await this.dataService.extractHeaders(file.path,body);
+      const result  = await this.dataService.extractHeaders(file.path);
 
       return {
         statusCode: HttpStatus.OK,
         message: 'CSV headers extracted successfully.',
         data: {
-          result,
-          // filePath is not needed in response anymore unless debugging
+          result
         },
       };
     } catch (error) {
@@ -99,15 +105,56 @@ export class DataController {
   }
 
 
-  @Get('getcompanyfield')
-  async getCompanyField(){
-    return this.dataService.getCompanyFields();
-  }
-    @Get('getcontactfield')
-  async getContactField(){
-    return this.dataService.getContactFields();
-  }
+@Post('datavalidation')
+  @UseGuards(AuthGuard)
+  async dataValidation(
+    @ReqUser() reqUser: any,
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body()
+    body: {
+      mapping: Record<string, string>;
+      requiredCompanyFields: string[];
+      semiRequiredCompanyFields: string[];
+      requiredContactFields: string[];
+      semiRequiredContactFields: string[];
+      isCompany: boolean;
+      isContact: boolean;
+    },
+  ) {
+    try {
+      const filePath = req.session['filePath'];
 
+      if (!filePath || !fs.existsSync(filePath)) {
+        throw new BadRequestException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'File not found or session expired. Please upload again.',
+        });
+      }
+
+      const result = await this.dataService.dataValidation(
+        filePath,
+        body.mapping,
+        body.requiredCompanyFields,
+        body.semiRequiredCompanyFields,
+        body.requiredContactFields,
+        body.semiRequiredContactFields,
+        body.isCompany,
+        body.isContact,
+      );
+
+      return res.status(HttpStatus.OK).json(ResponseHelper.success(result, 'Data validation successful', HttpStatus.OK));
+    } catch (error) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'Failed to process CSV data.',
+          error: error?.message || 'Internal Server Error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
  
 
   @Post('process')
@@ -126,6 +173,7 @@ export class DataController {
       isCompany: boolean;
       isContact: boolean;
       updateExisting: boolean;
+      validFieldMapping: any[]
     },
   ) {
     try {
@@ -149,6 +197,7 @@ export class DataController {
         body.isCompany,
         body.isContact,
         body.updateExisting,
+        body.validFieldMapping,
         transaction._id
       );
       

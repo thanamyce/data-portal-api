@@ -9,7 +9,7 @@ export class CompanyService {
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument | any>,
   ) {}
 
-  async createFromCSV(data: Partial<Company>, updateExisting,transactionId): Promise<Company | any> {
+  async createFromCSV(data: Partial<Company>, updateExisting,transactionId,validFieldMapping): Promise<Company | any> {
     
   if (!data.linkedinUrl) {
     throw new Error('Missing required field: LinkdinUri');

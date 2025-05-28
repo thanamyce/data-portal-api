@@ -11,8 +11,9 @@ export class ContactService {
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument>,
   ) {}
 
-  async createFromCSV(data: Partial<Contact>, updateExisting,transactionId): Promise<Contact | any> {
+  async createFromCSV(data: Partial<Contact>, updateExisting,transactionId,validFieldMapping): Promise<Contact | any> {
   
+const contactValidFields = validFieldMapping.contact;
 
   if (!data.contactLinkedinProfile) {
     throw new Error('Missing required field: contactLinkedinProfile');
@@ -21,6 +22,15 @@ export class ContactService {
   if (record && !updateExisting) {
     return { matched: true,isDuplicate: true, inserted: false, message: `Duplicate contact ${data.contactLinkedinProfile}, skipped insert` };
   }
+  if (data.jobLevel && contactValidFields.jobLevel[data.jobLevel]) {
+  data.jobLevel = contactValidFields.jobLevel[data.jobLevel];
+}
+if (data.jobRole && contactValidFields.jobRole[data.jobRole]) {
+  data.jobRole = contactValidFields.jobRole[data.jobRole];
+}
+if (data.jobSubRole && contactValidFields.jobSubRole[data.jobSubRole]) {
+  data.jobSubRole = contactValidFields.jobSubRole[data.jobSubRole];
+}
 
   const company:any = await this.companyModel.findOne({linkedinUrl: data.companyLinkedin})
   if(company){
