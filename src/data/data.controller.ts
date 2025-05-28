@@ -21,13 +21,20 @@ import { extname } from 'path';
 import * as fs from 'fs';
 
 import { ReqUser } from 'src/util/decorate';
+import { AuthGuard } from 'src/auth/auth.guard';
+import { InjectModel } from '@nestjs/mongoose';
+import { Transaction, TransactionDocument } from './transaction.shema';
+import { Model } from 'mongoose';
 
 @Controller('data')
 export class DataController {
-  constructor(private readonly dataService: DataService) {}
+  constructor(private readonly dataService: DataService,
+    @InjectModel(Transaction.name) private readonly transactionModel: Model<TransactionDocument>
+  ) {}
 
 
   @Post('upload')
+  @UseGuards(AuthGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -38,9 +45,9 @@ export class DataController {
           }
           cb(null, uploadPath);
         },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
+       filename: (req, file, cb) => {
+           const uniqueSuffix = Date.now();
+           cb(null, uniqueSuffix + '-' + file.originalname);
         },
       }),
       limits: {
@@ -54,7 +61,7 @@ export class DataController {
       },
     }),
   )
-  async uploadAndExtractHeaders(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+  async uploadAndExtractHeaders(@UploadedFile() file: Express.Multer.File, @Req() req: Request, @Body() body:any) {
     if (!file || !file.path) {
       throw new BadRequestException({
         statusCode: HttpStatus.BAD_REQUEST,
@@ -63,17 +70,19 @@ export class DataController {
       });
     }
 
+     
     try {
       // Save filePath in session
       req.session['filePath'] = file.path;
+      req.session['fileName'] = file.filename;
 
-      const headers = await this.dataService.extractHeaders(file.path);
+      const result  = await this.dataService.extractHeaders(file.path,body);
 
       return {
         statusCode: HttpStatus.OK,
         message: 'CSV headers extracted successfully.',
         data: {
-          headers,
+          result,
           // filePath is not needed in response anymore unless debugging
         },
       };
@@ -98,12 +107,13 @@ export class DataController {
   async getContactField(){
     return this.dataService.getContactFields();
   }
-  /**
-   * Step 2: Process CSV without needing filePath from client
-   */
+
+ 
 
   @Post('process')
+  @UseGuards(AuthGuard)
   async processMappedCSV(
+    @ReqUser() reqUser: any,
     @Req() req: Request,
     @Res() res: Response,
     @Body()
@@ -127,7 +137,8 @@ export class DataController {
           message: 'File not found or session expired. Please upload again.',
         });
       }
-
+      const filename = req.session['fileName']
+      const transaction:any = await this.dataService.createTransaction(reqUser.id,filename);
       const result = await this.dataService.processWithMapping(
         filePath,
         body.mapping,
@@ -137,8 +148,17 @@ export class DataController {
         body.semiRequiredContactFields,
         body.isCompany,
         body.isContact,
-        body.updateExisting
+        body.updateExisting,
+        transaction._id
       );
+      
+      const updatedTransaction = await this.transactionModel.findByIdAndUpdate({_id:transaction._id},{
+        $set: {dataSize: result.successCount,
+          isSuccessed: true
+        }
+      },{
+        new: true
+      })
         req.session.destroy((err)=>{
           if(err){
             console.error("Failed to destroy session")

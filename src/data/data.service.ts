@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, BadRequestException, HttpStatus } from '@nestjs/common';
 import * as fs from 'fs';
 import * as csvParser from 'csv-parser';
 import { CompanyService } from '../company/company.service';
@@ -7,46 +7,22 @@ import { TaskService } from '../task/task.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Company, CompanyDocument } from 'src/company/company.schema';
-import { Contact, ContactDocument } from 'src/contact/contact.schema';
+import { Contact, ContactDocument, jobLevel, jobRole, jobSubRole } from 'src/contact/contact.schema';
+import { ResponseHelper } from 'src/util/ResponseHelper';
+import { v4 as uuidv4 } from 'uuid';
+import { Transaction, TransactionDocument } from './transaction.shema';
 
 @Injectable()
 export class DataService {
   private readonly logger = new Logger(DataService.name);
-// public readonly companySchemaFields = [
-//     'name',
-//     'domain',
-//     'linkedinUrl',
-//     'emailPattern',
-//     'address',
-//     'companyPhoneNumber',
-//     'employeeRange',
-//     'revenueRange',
-//     'industry',
-//     'unknownFields',
-//     'lastValidityDate',
-//   ];
-
-//   public readonly contactSchemaFields = [
-//     'firstName',
-//     'lastName',
-//     'contactLinkedinProfile',
-//     'emailAddress',
-//     'phoneNumber',
-//     'mobileNumber',
-//     'title',
-//     'level',
-//     'companyExtension',
-//     'address',
-//     'companyId',
-//     'lastUpdated',
-//   ];
 
   constructor(
     private readonly companyService: CompanyService,
     private readonly contactService: ContactService,
     private readonly taskService: TaskService,
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument | any>,
-    @InjectModel(Contact.name) private contactModel: Model<ContactDocument | any>
+    @InjectModel(Contact.name) private contactModel: Model<ContactDocument | any>,
+    @InjectModel(Transaction.name) private readonly transactionModel: Model<TransactionDocument>,
   ) {
   }
 
@@ -67,19 +43,60 @@ export class DataService {
   /**
    * Extract headers from first line of CSV
    */
-  async extractHeaders(filePath: string): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(filePath)
-        .pipe(csvParser())
-        .on('headers', (headers: string[]) => {
-          resolve(headers);
-        })
-        .on('error', (err) => {
-          this.logger.error(`CSV header extraction failed: ${err.message}`);
-          reject(new InternalServerErrorException('Failed to extract headers from CSV'));
+  async extractHeaders(filePath: string,mapping:any): Promise<{
+  headers: string[];
+  invalidJobLevel: any[];
+  invalidJobRole: any[];
+  invalidJobSubRole: any[];
+}> {
+  const invalidJobLevelSet = new Set<string>();
+  const invalidJobRoleSet = new Set<string>();
+  const invalidJobSubRoleSet = new Set<string>();
+
+  const validJobLevel = Object.values(jobLevel);
+  const validJobRole = Object.values(jobRole);
+  const validJobSubRole = Object.values(jobSubRole);
+
+  let headers: string[] = [];
+
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(filePath)
+      .pipe(csvParser())
+      .on('headers', (h: string[]) => {
+        headers = h;
+      })
+      .on('data', (row) => {
+        if(mapping.isContact){
+                  const level = row[mapping.jobLevel]?.trim();
+        const role = row[mapping.jobRole]?.trim();
+        const subRole = row[mapping.jobSubRole]?.trim();
+       
+      if (level && !validJobLevel.includes(level)) {
+          invalidJobLevelSet.add(level);
+        }
+        if (role && !validJobRole.includes(role)) {
+          invalidJobRoleSet.add(role);
+        }
+        if (subRole && !validJobSubRole.includes(subRole)) {
+          invalidJobSubRoleSet.add(subRole);
+        }
+        }
+
+      })
+      .on('end', () => {
+        resolve({
+          headers,
+          invalidJobLevel: Array.from(invalidJobLevelSet),
+          invalidJobRole: Array.from(invalidJobRoleSet),
+          invalidJobSubRole: Array.from(invalidJobSubRoleSet),
         });
-    });
-  }
+      })
+      .on('error', (err) => {
+        this.logger?.error?.(`CSV header extraction failed: ${err.message}`);
+        reject(new InternalServerErrorException('Failed to extract headers from CSV'));
+      });
+  });
+}
 
   async getCompanyFields(){
     return this.companySchemaFields;
@@ -102,6 +119,7 @@ export class DataService {
     isCompany: boolean,
     isContact: boolean,
     updateExisting: boolean,
+    transactionId: string,
   ): Promise<{ message: string; totalRows: number; successCount: number; errorCount: number; errors: string[],duplicateValues: string[], invalidData: string[] }> {
     const rows: any[] = [];
     const errors: any[] = [];
@@ -138,7 +156,7 @@ export class DataService {
           }else{
             const semiContain = this.checkSemiRequiredFields(companyData,semiRequiredCompanyFields);
             if(semiContain){
-                const res = await this.companyService.createFromCSV(companyData,updateExisting);
+                const res = await this.companyService.createFromCSV(companyData,updateExisting,transactionId);
                 if(res.isDuplicate){
                   duplicateValues.push(res.message)
                 }
@@ -163,7 +181,7 @@ export class DataService {
           }else{
             const semiContain = this.checkSemiRequiredFields(contactData,semiRequiredContactFields);
             if(semiContain){
-                const res = await this.contactService.createFromCSV(contactData,updateExisting);
+                const res = await this.contactService.createFromCSV(contactData,updateExisting,transactionId);
                  if(res.isDuplicate){
                   duplicateValues.push(res.message)
                 }
@@ -226,4 +244,17 @@ export class DataService {
       (field) => data[field] != null && `${data[field]}`.trim() !== ''
     );
   }
+
+  async createTransaction(userId: string, fileName: string){
+    try {
+      const transaction = await this.transactionModel.create({
+        csvFileName: fileName,
+        createdBy: userId
+      })
+      return transaction;
+    } catch (error) {
+      return ResponseHelper.error(error,"Failed to transact",HttpStatus.INTERNAL_SERVER_ERROR)
+    }
+  }
+
 }

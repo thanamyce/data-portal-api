@@ -9,7 +9,7 @@ export class CompanyService {
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument | any>,
   ) {}
 
-  async createFromCSV(data: Partial<Company>, updateExisting): Promise<Company | any> {
+  async createFromCSV(data: Partial<Company>, updateExisting,transactionId): Promise<Company | any> {
     
   if (!data.linkedinUrl) {
     throw new Error('Missing required field: LinkdinUri');
@@ -18,6 +18,7 @@ export class CompanyService {
   if (record && !updateExisting) {
     return { matched: true, isDuplicate: true, inserted: false, message: `Duplicate company ${data.linkedinUrl}, skipped insert` };
   }
+  data.transactionId=transactionId;
     if (updateExisting) {
   // Normal upsert: update if exists, insert if not
   const result = await this.companyModel.updateOne(

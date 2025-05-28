@@ -11,7 +11,7 @@ export class ContactService {
     @InjectModel(Company.name) private companyModel: Model<CompanyDocument>,
   ) {}
 
-  async createFromCSV(data: Partial<Contact>, updateExisting): Promise<Contact | any> {
+  async createFromCSV(data: Partial<Contact>, updateExisting,transactionId): Promise<Contact | any> {
   
 
   if (!data.contactLinkedinProfile) {
@@ -26,6 +26,7 @@ export class ContactService {
   if(company){
     data.companyId= company._id;
   }
+  data.transactionId = transactionId;
   if (updateExisting) {
   // Normal upsert: update if exists, insert if not
   const result = await this.contactModel.updateOne(
