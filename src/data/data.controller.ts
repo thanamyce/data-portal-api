@@ -120,6 +120,7 @@ export class DataController {
       semiRequiredContactFields: string[];
       isCompany: boolean;
       isContact: boolean;
+      updateExisting: boolean;
     },
   ) {
     try {
@@ -143,6 +144,7 @@ export class DataController {
         body.isContact,
       );
 
+      req.session['reqBody'] = body;
       return res.status(HttpStatus.OK).json(ResponseHelper.success(result, 'Data validation successful', HttpStatus.OK));
     } catch (error) {
       throw new HttpException(
@@ -165,14 +167,6 @@ export class DataController {
     @Res() res: Response,
     @Body()
     body: {
-      mapping: Record<string, string>;
-      requiredCompanyFields: string[];
-      semiRequiredCompanyFields: string[];
-      requiredContactFields: string[];
-      semiRequiredContactFields: string[];
-      isCompany: boolean;
-      isContact: boolean;
-      updateExisting: boolean;
       validFieldMapping: any[]
     },
   ) {
@@ -186,17 +180,18 @@ export class DataController {
         });
       }
       const filename = req.session['fileName']
+      const reqBody = req.session['reqBody']
       const transaction:any = await this.dataService.createTransaction(reqUser.id,filename);
       const result = await this.dataService.processWithMapping(
         filePath,
-        body.mapping,
-        body.requiredCompanyFields,
-        body.semiRequiredCompanyFields,
-        body.requiredContactFields,
-        body.semiRequiredContactFields,
-        body.isCompany,
-        body.isContact,
-        body.updateExisting,
+        reqBody.mapping,
+        reqBody.requiredCompanyFields,
+        reqBody.semiRequiredCompanyFields,
+        reqBody.requiredContactFields,
+        reqBody.semiRequiredContactFields,
+        reqBody.isCompany,
+        reqBody.isContact,
+        reqBody.updateExisting,
         body.validFieldMapping,
         transaction._id
       );
