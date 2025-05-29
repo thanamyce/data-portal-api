@@ -11,6 +11,7 @@ export class CompanyService {
 
   async createFromCSV(data: Partial<Company>, updateExisting,transactionId,validFieldMapping): Promise<Company | any> {
     
+    const companyValidFields = validFieldMapping.company;
   if (!data.linkedinUrl) {
     throw new Error('Missing required field: LinkdinUri');
   }
@@ -18,6 +19,26 @@ export class CompanyService {
   if (record && !updateExisting) {
     return { matched: true, isDuplicate: true, inserted: false, message: `Duplicate company ${data.linkedinUrl}, skipped insert` };
   }
+
+if(data.region && companyValidFields.region[data.region]){
+  data.region = companyValidFields.region[data.region];
+}
+if(data.industry && companyValidFields.industry[data.industry]){
+  data.industry = companyValidFields.industry[data.industry];
+}
+if(data.industryClassification && companyValidFields.industryClassification[data.industryClassification]){
+  data.industryClassification = companyValidFields.industryClassification[data.industryClassification];
+}
+if(data.employeeRange && companyValidFields.employeeRange[data.employeeRange]){
+  data.employeeRange= companyValidFields.employeeRange[data.employeeRange];
+}
+if(data.revenueRange && companyValidFields.revenueRange[data.revenueRange]){
+  data.revenueRange = companyValidFields.revenueRange[data.revenueRange];
+}
+if(data.companyType && companyValidFields.companyType[data.companyType]){
+  data.companyType = companyValidFields.companyType[data.companyType];
+}
+
   data.transactionId=transactionId;
     if (updateExisting) {
   // Normal upsert: update if exists, insert if not

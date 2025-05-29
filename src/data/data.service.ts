@@ -69,10 +69,29 @@ async dataValidation(
     const invalidJobLevelSet = new Set<string>();
     const invalidJobRoleSet = new Set<string>();
     const invalidJobSubRoleSet = new Set<string>();
+    const invalidContactRegionSet = new Set<string>();
+
+    const invalidCompanyRegion = new Set<string>();
+    const invalidIndustry =  new Set<string>();
+    const invalidIndClass =  new Set<string>();
+    const invalidEmpRange =  new Set<string>();
+    const invalidRevRange =  new Set<string>();
+    const invalidComType =  new Set<string>();
+
 
     const validJobLevel = Object.values(jobLevel);
     const validJobRole = Object.values(jobRole);
     const validJobSubRole = Object.values(jobSubRole);
+    const validRegion = Object.values(RegionGroup)
+
+    const validIndustry = Object.values(Industry);
+    const validIndClass = Object.values(IndustryClassification);
+    const validEmpRange = Object.values(EmployeeRange);
+    const validRevRange = Object.values(RevenueRange);
+    const validComType = Object.values(CompanyType);
+
+
+
 
     const rows: any[] = [];
     const invalidCompanyData: any[] = [];
@@ -109,6 +128,36 @@ async dataValidation(
             const result = Object.fromEntries(requiredCompanyFields.map((key) => [key, companyData[key]]));
             invalidCompanyData.push({ type: 'company', companyData: result });
           } else {
+
+            const region = companyData['region']?.trim().toUpperCase();
+            const industry = companyData['industry']?.trim().toUpperCase();
+            const industryClass = companyData['industryClassification']?.trim().toUpperCase();
+            const empRange = companyData['employeeRange']?.trim().toUpperCase();
+            const revRange = companyData['revenueRange']?.trim().toUpperCase();
+            const comType = companyData['companyType']?.trim().toUpperCase();
+
+            if(region && !validRegion.includes(region)){
+                  invalidCompanyRegion.add(region)
+            }
+            if(industry && !validIndustry.includes(industry)){
+                  invalidIndustry.add(industry)
+            }
+            if(industryClass && !validIndClass.includes(industryClass)){
+                  invalidIndClass.add(industryClass)
+            }
+            if(empRange && !validEmpRange.includes(empRange)){
+                  invalidEmpRange.add(empRange)
+            }
+            if(revRange && !validRevRange.includes(revRange)){
+                  invalidRevRange.add(revRange)
+            }
+            if(comType && !validComType.includes(comType)){
+                  invalidComType.add(comType)
+            }
+
+
+
+
             const semiContain = this.checkSemiRequiredFields(companyData, semiRequiredCompanyFields);
             if (!semiContain){
               const reqresult = Object.fromEntries(requiredCompanyFields.map((key) => [key, companyData[key]]));
@@ -131,6 +180,7 @@ async dataValidation(
             const level = contactData['jobLevel']?.trim().toUpperCase();
             const role = contactData['jobRole']?.trim().toUpperCase();
             const subRole = contactData['jobSubRole']?.trim().toUpperCase();
+            const region = contactData['region']?.trim().toUpperCase();
 
             if (level && !validJobLevel.includes(level)) {
               invalidJobLevelSet.add(level);
@@ -142,12 +192,16 @@ async dataValidation(
               invalidJobSubRoleSet.add(subRole);
             }
 
+            if(region && !validRegion.includes(region)){
+              invalidContactRegionSet.add(region);
+            }
+
            
             const semiContain = this.checkSemiRequiredFields(contactData, semiRequiredContactFields);
             if (semiContain){
-              const record = await this.companyModel.findOne({linkedinUrl: contactData.linkedinUrl})
+              const record = await this.contactModel.findOne({contactLinkedinProfile: contactData.contactLinkedinProfile})
                 if (record) {
-                   duplicateValues.push({ matched: true, isDuplicate: true, inserted: false, message: `Duplicate company ${contactData.linkedinUrl}, skipped insert` });
+                   duplicateValues.push({ matched: true, isDuplicate: true, inserted: false, message: `Duplicate company ${contactData.contactLinkedinProfile}, skipped insert` });
                    }
             }
              else{
@@ -170,6 +224,13 @@ async dataValidation(
               invalidJobLevel: Array.from(invalidJobLevelSet),
               invalidJobRole: Array.from(invalidJobRoleSet),
               invalidJobSubRole: Array.from(invalidJobSubRoleSet),
+              invalidContactRegionSet: Array.from(invalidContactRegionSet),
+              invalidCompanyRegion: Array.from(invalidCompanyRegion),
+              invalidIndustry: Array.from(invalidIndustry),
+              invalidIndClass: Array.from(invalidIndClass),
+              invalidEmpRange: Array.from(invalidEmpRange),
+              invalidRevRange: Array.from(invalidRevRange),
+              invalidComType: Array.from(invalidComType),
             }
     return {
       message: 'CSV validation data',

@@ -31,6 +31,9 @@ if (data.jobRole && contactValidFields.jobRole[data.jobRole]) {
 if (data.jobSubRole && contactValidFields.jobSubRole[data.jobSubRole]) {
   data.jobSubRole = contactValidFields.jobSubRole[data.jobSubRole];
 }
+if(data.region && contactValidFields.region[data.region]){
+  data.region = contactValidFields.region[data.region];
+}
 
   const company:any = await this.companyModel.findOne({linkedinUrl: data.companyLinkedin})
   if(company){
