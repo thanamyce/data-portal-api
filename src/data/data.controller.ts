@@ -42,6 +42,11 @@ export class DataController {
     return this.dataService.getContactFields();
   }
 
+  @Get('allenum')
+  async getAllEnum(){
+    return this.dataService.allEnum();
+  }
+
   @Get('getfields')
   async getFields(){
     return this.dataService.formData();

@@ -11,7 +11,7 @@ import { Contact, ContactDocument } from 'src/contact/contact.schema';
 import { ResponseHelper } from 'src/util/ResponseHelper';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction, TransactionDocument } from './transaction.shema';
-import { EmployeeRange, Industry, IndustryClassification, jobLevel, jobRole, jobSubRole, RegionGroup, RevenueRange } from 'src/util/enum';
+import { CompanyType, EmployeeRange, Industry, IndustryClassification, jobLevel, jobRole, jobSubRole, REGION_COUNTRIES, RegionGroup, RevenueRange } from 'src/util/enum';
 
 @Injectable()
 export class DataService {
@@ -399,6 +399,20 @@ async formData(){
   }
 
   return {"FormFields":data};
+}
+
+async allEnum(){
+  return {
+    jobLevel,
+    jobRole,
+    jobSubRole,
+    RegionGroup,
+    Industry,
+    IndustryClassification,
+    EmployeeRange,
+    RevenueRange,
+    CompanyType
+  };
 }
 
 
