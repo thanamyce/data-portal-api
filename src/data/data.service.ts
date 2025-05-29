@@ -7,10 +7,11 @@ import { TaskService } from '../task/task.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Company, CompanyDocument } from 'src/company/company.schema';
-import { Contact, ContactDocument, jobLevel, jobRole, jobSubRole } from 'src/contact/contact.schema';
+import { Contact, ContactDocument } from 'src/contact/contact.schema';
 import { ResponseHelper } from 'src/util/ResponseHelper';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction, TransactionDocument } from './transaction.shema';
+import { EmployeeRange, Industry, IndustryClassification, jobLevel, jobRole, jobSubRole, RegionGroup, RevenueRange } from 'src/util/enum';
 
 @Injectable()
 export class DataService {
@@ -346,5 +347,59 @@ async dataValidation(
       return ResponseHelper.error(error,"Failed to transact",HttpStatus.INTERNAL_SERVER_ERROR)
     }
   }
+
+async formData(){
+  const data = {
+    Contact:{
+      Name:{
+        firstName:"Input",
+        lastName:"Input",
+      },
+      JobInformation:{
+        jobTitle:"Input",
+        jobLevel:jobLevel,
+        jobRole:jobRole,
+        jobSubRole:jobSubRole,
+      },
+      Location:{
+        country:"Input",
+        region:RegionGroup,
+      },
+      Skills:{},
+      Education:{
+        school:"Input",
+        major:"Input",
+      },
+      LinkedinUrl:{},
+      PastCompany:{},
+    },
+    Company:{
+      BusinessName:{},
+      HQLocation:{
+         country:"Input",
+         region:RegionGroup,
+      },
+      Industry:{
+        industry:Industry,
+        industryClassification:IndustryClassification,
+        industryClassificationCode:"Input",
+      },
+      HeadCount:{
+        employeeRange:EmployeeRange
+      },
+      Revenue:{
+        companyRevenue:RevenueRange,
+      },
+      YearFounded:{
+        from:"Input",
+        to:"Input",
+      }
+
+    }
+  }
+
+  return {"FormFields":data};
+}
+
 
 }

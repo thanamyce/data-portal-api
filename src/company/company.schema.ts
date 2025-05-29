@@ -1,15 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import {Schema as MongooseSchema} from 'mongoose'
+import { CompanyType, EmployeeRange, Industry, IndustryClassification, RegionGroup, RevenueRange } from 'src/util/enum';
 
-enum companyTypes  {
-  "Private",
-  "Public",
-  "Educational",
-  "Government",
-  "NonProfit",
-  "PublicSubsidiary"
-}
 
 export type CompanyDocument = Company & Document;
 
@@ -41,7 +34,7 @@ export class Company extends Document {
   locality: string;
 
   @Prop()
-  region: string;
+  region: RegionGroup;
 
   @Prop()
   country: string;
@@ -53,16 +46,22 @@ export class Company extends Document {
   companyPhoneNumber: string;
 
   @Prop()
-  employeeRange: string;
+  employeeRange: EmployeeRange;
 
   @Prop()
-  revenueRange: string;
+  revenueRange: RevenueRange;
 
   @Prop()
-  industry: string;
+  industry: Industry;
 
   @Prop()
   subIndustry: string;
+
+  @Prop()
+  industryClassification: IndustryClassification;
+
+  @Prop()
+  industryClassificationCode: string;
 
   @Prop()
   foundedYear: number;
@@ -71,7 +70,7 @@ export class Company extends Document {
   totalFunding: string;
 
   @Prop()
-  companyType: companyTypes;
+  companyType: CompanyType;
 
   @Prop()
   twitterUrl: string;

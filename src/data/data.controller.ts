@@ -42,6 +42,11 @@ export class DataController {
     return this.dataService.getContactFields();
   }
 
+  @Get('getfields')
+  async getFields(){
+    return this.dataService.formData();
+  }
+
   @Post('upload')
   @UseGuards(AuthGuard)
   @UseInterceptors(
