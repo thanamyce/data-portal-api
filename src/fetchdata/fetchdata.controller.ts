@@ -1,7 +1,7 @@
 // src/contacts/contacts.controller.ts
 import { Controller, Post, Body, UseGuards, Res, HttpStatus } from '@nestjs/common';
 import { FetchdataService } from './fetchdata.service';
-import { NestedContactFilterDto } from './filter.dto';
+import { ExportContactDto, NestedContactFilterDto } from './filter.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Parser } from 'json2csv';
 import { Response } from 'express';
@@ -29,19 +29,19 @@ export class FetchdataController {
   @UseGuards(AuthGuard)
   @Post('export')
  async exportData(
-    @Body() body:{filterDto: NestedContactFilterDto, fileName: string},
+    @Body() body:ExportContactDto,
     @Res() res: Response,
     @ReqUser() reqUser: any
   ) {
    try {
      // Call your service to get the full response object
-     const response = await this.contactsService.filterContactsAndCompanies(body.filterDto);
- 
+     const response = await this.contactsService.exportContactsAndCompanies(body);
+    const selectedFields = body.fields || [];
      // Extract the `data` array from the response
      const dataArray:any = response.data;
  
      // Flatten each item in the array by lifting companyId fields up one level
-     const flattened = dataArray.map(item => {
+     let flattened = dataArray.map(item => {
        const doc = item.toObject();
        const { companyId, ...rest } = doc;
  
@@ -64,8 +64,13 @@ export class FetchdataController {
        };
      });
  
- 
-     // Use json2csv to convert the flattened JSON array to CSV string
+      if (selectedFields.length > 0) {
+  flattened = flattened.map(record =>
+    Object.fromEntries(
+      Object.entries(record).filter(([key]) => selectedFields.includes(key))
+    )
+  );
+}
      const parser = new Parser();
      const csv = parser.parse(flattened);
  
