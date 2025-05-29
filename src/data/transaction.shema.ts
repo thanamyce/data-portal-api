@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+import {v4 as uuidv4} from 'uuid';
 
 export type TransactionDocument = Transaction & Document;
 
@@ -7,6 +8,9 @@ type action = "Upload" | "Export";
 @Schema({ timestamps: true })
 export class Transaction extends Document {
 
+  @Prop({unique: true,required: true,default:()=>uuidv4()})
+  transactionId: string
+  
   @Prop()
   csvFileName: string;
 

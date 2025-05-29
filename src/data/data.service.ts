@@ -399,7 +399,9 @@ async dataValidation(
 
   async createTransaction(userId: string, fileName: string){
     try {
+      const uniqueTransactionId = uuidv4();
       const transaction = await this.transactionModel.create({
+        transactionId: uniqueTransactionId,
         csvFileName: fileName,
         createdBy: userId
       })
@@ -462,18 +464,40 @@ async formData(){
   return {"FormFields":data};
 }
 
-async allEnum(){
+async getJobEnums(){
+
+const jobLevelObj = Object.entries(jobLevel).reduce((obj, [key, value]) => {
+    obj[key] = value;
+    return obj;
+  }, {});
+ 
+  const jobRoleObj = Object.entries(jobRole).reduce((obj, [key, value]) => {
+    obj[key] = value;
+    return obj;
+  }, {});
+ 
+  const jobSubRoleObj = Object.entries(jobSubRole).reduce((obj, [key, value]) => {
+    obj[key] = value;
+    return obj;
+  }, {});
+ 
   return {
-    jobLevel,
-    jobRole,
-    jobSubRole,
-    RegionGroup,
-    Industry,
-    IndustryClassification,
-    EmployeeRange,
-    RevenueRange,
-    CompanyType
+    jobLevel: jobLevelObj,
+    jobRole: jobRoleObj,
+    jobSubRole: jobSubRoleObj
   };
+
+  // return {
+  //   jobLevel,
+  //   jobRole,
+  //   jobSubRole,
+  //   RegionGroup,
+  //   Industry,
+  //   IndustryClassification,
+  //   EmployeeRange,
+  //   RevenueRange,
+  //   CompanyType
+  // };
 }
 
 
